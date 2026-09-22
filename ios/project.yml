@@ -10,6 +10,7 @@ targets:
     sources:
       - Sources/HandsFree
     info:
+      path: Info.plist
       properties:
         UIBackgroundModes: [audio]
         NSMicrophoneUsageDescription: "HandsFree listens for your voice commands, including a wake word, while you're driving."
