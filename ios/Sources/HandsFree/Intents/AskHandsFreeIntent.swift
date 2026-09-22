@@ -21,10 +21,15 @@ struct AskHandsFreeIntent: AppIntent {
 }
 
 struct HandsFreeShortcuts: AppShortcutsProvider {
+    // `query` is deliberately NOT referenced in the phrase below: App Shortcuts
+    // phrases only accept AppEntity/AppEnum parameters (a fixed vocabulary Siri can
+    // match offline), not free-text String. The phrase just opens the app; the actual
+    // question is captured afterwards through the normal voice pipeline.
+    @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: AskHandsFreeIntent(),
-            phrases: ["Ask \(.applicationName) to \(\.$query)"],
+            phrases: ["Ask \(.applicationName) a question"],
             shortTitle: "Ask HandsFree",
             systemImageName: "mic.fill"
         )
