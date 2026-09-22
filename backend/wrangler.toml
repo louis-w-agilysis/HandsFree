@@ -2,6 +2,12 @@ name = "handsfree-backend"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
-# ANTHROPIC_API_KEY is a secret, not set here.
+# ANTHROPIC_API_KEY and CLIENT_SHARED_SECRET are secrets, not set here.
 # Local dev: copy .dev.vars.example to .dev.vars and fill it in.
-# Deployed:  wrangler secret put ANTHROPIC_API_KEY
+# Deployed:  wrangler secret put ANTHROPIC_API_KEY / CLIENT_SHARED_SECRET
+
+# Relays the phone's on-screen diagnostic log here so Claude can read it via GET /log
+# without the user needing to relay anything manually -- see docs/decisions.md.
+[[kv_namespaces]]
+binding = "DIAGNOSTICS"
+id = "2f41d6a7c9db41fa80a6194d956de989"

@@ -19,7 +19,9 @@ final class ConversationStore: ObservableObject {
     /// SFSpeechRecognizer, just never displayed anywhere.
     @Published private(set) var liveTranscript = ""
     /// Timestamped event log covering every step of a turn, so a test can be
-    /// diagnosed by reading this rather than guessing over chat.
+    /// diagnosed by reading this rather than guessing over chat. Also relayed to the
+    /// backend (see `DiagnosticsReporter`) so it can be read remotely, since Claude
+    /// has no way to see this screen directly.
     @Published private(set) var debugLog: [String] = []
 
     /// How many recent turns to send as context on each request. Every message sends
@@ -32,6 +34,7 @@ final class ConversationStore: ObservableObject {
     private let transcriber: SpeechTranscribing = OnDeviceSpeechTranscriber()
     private let synthesizer: SpeechSynthesizing = OnDeviceSpeechSynthesizer()
     private let toolDispatcher = ToolDispatcher()
+    private let diagnosticsReporter = DiagnosticsReporter()
 
     private var inProgressAssistantText = ""
 
@@ -113,6 +116,7 @@ final class ConversationStore: ObservableObject {
         log("Sending to Claude…")
 
         let recentTurns = Array(turns.suffix(maxHistoryTurns))
+        var toolResults: [String] = []
 
         Task { @MainActor in
             defer { isProcessing = false }
@@ -123,32 +127,43 @@ final class ConversationStore: ObservableObject {
                         self?.inProgressAssistantText += delta
                     },
                     onToolCall: { [weak self] toolCall in
-                        self?.log("Tool call: \(toolCall.name)")
-                        // TODO (Phase 2+): send the tool result back to Claude as the
-                        // next turn once the handlers below actually do something to
-                        // report — see the open risk in docs/architecture.md.
-                        self?.toolDispatcher.dispatch(toolCall)
+                        guard let self else { return }
+                        self.log("Tool call: \(toolCall.name) \(toolCall.input)")
+                        let result = await self.toolDispatcher.dispatch(toolCall)
+                        self.log("Tool result: \(result)")
+                        toolResults.append(result)
                     }
                 )
-                log("Response received (\(inProgressAssistantText.count) chars)")
-                finishAssistantTurn()
+                log("Response received (\(inProgressAssistantText.count) chars, \(toolResults.count) tool call(s))")
+                finishAssistantTurn(toolResults: toolResults)
             } catch {
-                // Speak/show whatever text had already streamed before the error,
-                // rather than silently discarding a partial answer the user was
-                // already hearing.
+                // Speak/show whatever text (and any tool results) had already
+                // completed before the error, rather than silently discarding a
+                // partial answer the user was already hearing.
                 log("Request failed: \(error.localizedDescription)")
-                finishAssistantTurn()
+                finishAssistantTurn(toolResults: toolResults)
                 turns.append(ConversationTurn(role: .assistant, text: "Something went wrong: \(error.localizedDescription)"))
             }
         }
     }
 
-    private func finishAssistantTurn() {
-        guard !inProgressAssistantText.isEmpty else {
+    /// Always produces something the user hears — this used to only speak
+    /// `inProgressAssistantText`, so a response that was *only* a tool call (Claude
+    /// often doesn't add accompanying text — see docs/risk-assessment.md) went
+    /// completely silent: no reminder feedback, no error, nothing. Tool results are
+    /// appended to whatever text Claude did send, not sent back to Claude for a more
+    /// natural reply — that's the still-open TODO in docs/architecture.md.
+    private func finishAssistantTurn(toolResults: [String] = []) {
+        var text = inProgressAssistantText
+        if !toolResults.isEmpty {
+            if !text.isEmpty { text += " " }
+            text += toolResults.joined(separator: " ")
+        }
+        guard !text.isEmpty else {
             log("(empty response — nothing to speak)")
+            turns.append(ConversationTurn(role: .assistant, text: "(no response)"))
             return
         }
-        let text = inProgressAssistantText
         turns.append(ConversationTurn(role: .assistant, text: text))
         synthesizer.speak(text)
         inProgressAssistantText = ""
@@ -160,5 +175,6 @@ final class ConversationStore: ObservableObject {
         if debugLog.count > maxDebugLogLines {
             debugLog.removeFirst(debugLog.count - maxDebugLogLines)
         }
+        diagnosticsReporter.report(debugLog)
     }
 }

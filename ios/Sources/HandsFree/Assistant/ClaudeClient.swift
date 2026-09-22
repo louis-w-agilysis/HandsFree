@@ -16,10 +16,14 @@ final class ClaudeClient {
     /// `onTextDelta`/`onToolCall` are typed `@MainActor` so callers can safely touch
     /// UI state directly inside them — this function's own loop runs off-MainActor
     /// (URLSession's byte stream delivery), so each call hops back via `await`.
+    /// `onToolCall` is `async` so the caller can actually execute the tool (EventKit,
+    /// MapKit, etc.) and have its result available before `converse()` returns —
+    /// without `async` here, tool execution would fire-and-forget with no way to
+    /// report back whether it actually worked.
     func converse(
         messages: [ConversationTurn],
         onTextDelta: @escaping @MainActor (String) -> Void,
-        onToolCall: @escaping @MainActor (ToolCall) -> Void
+        onToolCall: @escaping @MainActor (ToolCall) async -> Void
     ) async throws {
         var request = URLRequest(url: backendURL.appendingPathComponent("converse"))
         request.httpMethod = "POST"
