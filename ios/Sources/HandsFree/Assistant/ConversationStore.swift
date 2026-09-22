@@ -44,23 +44,23 @@ final class ConversationStore: ObservableObject {
         transcriber.onFinalTranscript = { [weak self] text in
             Task { @MainActor in
                 guard let self else { return }
-                isListening = false
-                liveTranscript = ""
+                self.isListening = false
+                self.liveTranscript = ""
                 guard !text.isEmpty else {
-                    log("Heard nothing")
+                    self.log("Heard nothing")
                     return
                 }
-                log("Heard: \"\(text)\"")
-                send(text)
+                self.log("Heard: \"\(text)\"")
+                self.send(text)
             }
         }
         transcriber.onError = { [weak self] error in
             Task { @MainActor in
                 guard let self else { return }
-                isListening = false
-                liveTranscript = ""
-                log("Speech recognition error: \(error.localizedDescription)")
-                turns.append(
+                self.isListening = false
+                self.liveTranscript = ""
+                self.log("Speech recognition error: \(error.localizedDescription)")
+                self.turns.append(
                     ConversationTurn(role: .assistant, text: "Didn't catch that — try again? (\(error.localizedDescription))")
                 )
             }
@@ -68,15 +68,15 @@ final class ConversationStore: ObservableObject {
         synthesizer.onSpeechStart = { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                isSpeaking = true
-                log("Speaking response aloud")
+                self.isSpeaking = true
+                self.log("Speaking response aloud")
             }
         }
         synthesizer.onSpeechFinish = { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                isSpeaking = false
-                log("Finished speaking")
+                self.isSpeaking = false
+                self.log("Finished speaking")
             }
         }
     }
