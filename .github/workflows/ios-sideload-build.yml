@@ -1,0 +1,49 @@
+# Builds an unsigned device (iphoneos) .ipa and uploads it as a workflow artifact.
+# Download it from this run's Summary page and install it via SideStore
+# (docs.sidestore.io) — SideStore re-signs it with your own free Apple ID, so it
+# does NOT need to be signed here. This is the Phase 1-5 release path; see
+# docs/dev-workflow.md for why it's used instead of TestFlight until Phase 6 (CarPlay).
+name: iOS sideload build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build unsigned for device
+        working-directory: ios
+        run: |
+          xcodebuild build \
+            -project HandsFree.xcodeproj \
+            -scheme HandsFree \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package as .ipa
+        working-directory: ios
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/HandsFree.app"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r HandsFree.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HandsFree-unsigned
+          path: ios/HandsFree.ipa

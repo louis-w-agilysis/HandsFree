@@ -1,0 +1,7 @@
+name = "handsfree-backend"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# ANTHROPIC_API_KEY is a secret, not set here.
+# Local dev: copy .dev.vars.example to .dev.vars and fill it in.
+# Deployed:  wrangler secret put ANTHROPIC_API_KEY

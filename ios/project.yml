@@ -1,0 +1,21 @@
+name: HandsFree
+options:
+  bundleIdPrefix: com.louiswoolsey
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  HandsFree:
+    type: application
+    platform: iOS
+    sources:
+      - Sources/HandsFree
+    info:
+      properties:
+        UIBackgroundModes: [audio]
+        NSMicrophoneUsageDescription: "HandsFree listens for your voice commands, including a wake word, while you're driving."
+        NSSpeechRecognitionUsageDescription: "HandsFree transcribes your voice commands on-device."
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.louiswoolsey.handsfree
+        SWIFT_VERSION: "5.0"

@@ -1,0 +1,34 @@
+# Compile-check for the iOS app on every push. No signing, no Apple Developer account
+# needed — just proof the Swift actually builds, since there's no local Mac to check
+# this on. See docs/dev-workflow.md for why this is split from ios-testflight.yml.
+name: iOS build check
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build for Simulator
+        working-directory: ios
+        run: |
+          xcodebuild build \
+            -project HandsFree.xcodeproj \
+            -scheme HandsFree \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO

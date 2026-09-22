@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- TODO: replace with your actual Apple Developer Team ID (developer.apple.com
+         → Membership) once you've enrolled — see docs/dev-workflow.md. -->
+    <key>teamID</key>
+    <string>REPLACE_WITH_TEAM_ID</string>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>destination</key>
+    <string>upload</string>
+</dict>
+</plist>
