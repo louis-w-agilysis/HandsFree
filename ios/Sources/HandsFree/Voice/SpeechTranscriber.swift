@@ -9,8 +9,8 @@ protocol SpeechTranscribing: AnyObject {
     /// transcript once they stop.
     var onPartialTranscript: ((String) -> Void)? { get set }
     var onFinalTranscript: ((String) -> Void)? { get set }
-    /// Called instead of onFinalTranscript if recognition fails (permission denied,
-    /// no speech detected, recognizer unavailable mid-session, etc.) — callers must
+    /// Called instead of onFinalTranscript if recognition genuinely fails (permission
+    /// denied, no speech detected, recognizer unavailable mid-session) — callers must
     /// handle this to reset any "listening" UI state, or it gets stuck indefinitely.
     var onError: ((Error) -> Void)? { get set }
 
@@ -34,7 +34,10 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
     private var task: SFSpeechRecognitionTask?
 
     func startTranscribing() throws {
-        SFSpeechRecognizer.requestAuthorization { _ in }
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
+            SFSpeechRecognizer.requestAuthorization { _ in }
+            throw SpeechTranscriberError.notAuthorized
+        }
 
         guard let recognizer, recognizer.isAvailable else {
             throw SpeechTranscriberError.recognizerUnavailable
@@ -61,17 +64,14 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
-            // Without this branch, any recognition failure (permission denied, no
-            // speech detected, a mid-session drop) left onFinalTranscript never
-            // called — which left ConversationStore's `isListening` stuck true
-            // forever, with the mic tap and audio engine still running.
             if let error {
-                self.stopTranscribing()
+                self.tearDown()
                 self.onError?(error)
                 return
             }
             guard let result else { return }
             if result.isFinal {
+                self.tearDown()
                 self.onFinalTranscript?(result.bestTranscription.formattedString)
             } else {
                 self.onPartialTranscript?(result.bestTranscription.formattedString)
@@ -79,17 +79,43 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
         }
     }
 
+    /// Called when the user taps to stop talking. Signals end-of-speech via
+    /// `endAudio()` so the recognizer finalizes whatever was actually said.
+    ///
+    /// This used to also call `task.cancel()` here, which was the bug: cancel() and
+    /// the endAudio()-triggered finalization raced, and cancel always won, so the
+    /// recognizer never got the chance to deliver a real transcript — every attempt
+    /// came back as "Recognition request was canceled" instead of actual text.
     func stopTranscribing() {
         guard audioEngine.isRunning else { return }
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         request?.endAudio()
-        task?.cancel()
+    }
+
+    /// Releases the request/task once the recognizer has actually finished with them
+    /// (a final result or an error) — separate from `stopTranscribing()`, which only
+    /// signals end-of-speech and lets recognition finish asynchronously afterward.
+    private func tearDown() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
         request = nil
         task = nil
     }
 }
 
-enum SpeechTranscriberError: Error {
+enum SpeechTranscriberError: Error, LocalizedError {
     case recognizerUnavailable
+    case notAuthorized
+
+    var errorDescription: String? {
+        switch self {
+        case .recognizerUnavailable:
+            return "Speech recognizer isn't available right now."
+        case .notAuthorized:
+            return "Speech recognition permission not granted yet — check Settings, or try again after allowing it."
+        }
+    }
 }
