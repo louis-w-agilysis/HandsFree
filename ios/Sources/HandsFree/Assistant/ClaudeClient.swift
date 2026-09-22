@@ -6,9 +6,10 @@ import Foundation
 final class ClaudeClient {
     private let backendURL: URL
 
-    /// Point this at your locally-running `wrangler dev` backend during development,
-    /// and at the deployed Worker URL once one exists (see backend/README.md).
-    init(backendURL: URL = URL(string: "http://localhost:8787")!) {
+    /// Defaults to the deployed Worker (see backend/README.md) so the app works
+    /// anywhere, not just on the same network as a machine running `wrangler dev`.
+    /// Pass `http://localhost:8787` explicitly when developing against a local backend.
+    init(backendURL: URL = URL(string: "https://handsfree-backend.louis-woolsey2.workers.dev")!) {
         self.backendURL = backendURL
     }
 

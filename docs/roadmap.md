@@ -14,5 +14,5 @@ Phased so each step is independently useful and testable — not a fixed schedul
 
 1. ~~Get `backend/` running locally and confirm a tool-use round trip against Claude works.~~ Done.
 2. ~~Push this repo to GitHub (public) so `ios-build.yml` gives compile-check feedback on every push.~~ Done — CI is green.
-3. Set up SideStore (one-time PC setup, see [dev-workflow.md](dev-workflow.md)) and install the app via `ios-sideload-build.yml` so Phase 1 can actually be confirmed working on the iPhone 15 Pro.
-4. Deploy `backend/` to Cloudflare for real (`wrangler deploy` + `wrangler secret put ANTHROPIC_API_KEY`) — right now `ClaudeClient.swift` points at `http://localhost:8787`, which only works while `wrangler dev` is running on a machine on the same network as the phone. A deployed Worker is needed before the app is usable away from this setup.
+3. ~~Deploy `backend/` to Cloudflare for real.~~ Done — live at `https://handsfree-backend.louis-woolsey2.workers.dev`, smoke-tested 2026-09-22 (Haiku 4.5, thinking disabled, 7 output tokens for a trivial request). `ClaudeClient.swift` now points at it by default.
+4. Set up SideStore (one-time PC setup, see [dev-workflow.md](dev-workflow.md)) and install the app via `ios-sideload-build.yml` so Phase 1 can actually be confirmed working on the iPhone 15 Pro — this is the one remaining step before Phase 1 can be checked off above.
