@@ -1,8 +1,8 @@
 import AppIntents
 
 /// Donated so `"Hey Siri, ask HandsFree to…"` and Shortcuts automations (e.g.
-/// auto-launch on CarPlay connect, see docs/roadmap.md Phase 6) can open straight into
-/// a conversation. This is the well-supported direction of App Intents — Siri calling
+/// auto-launch on Bluetooth car-audio connect) can open straight into a conversation.
+/// This is the well-supported direction of App Intents — Siri calling
 /// into *this* app — as opposed to this app calling into others (see the tool-call
 /// handlers in ToolIntents/, and the open risk noted in docs/architecture.md).
 struct AskHandsFreeIntent: AppIntent {

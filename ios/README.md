@@ -1,6 +1,6 @@
 # ios
 
-The HandsFree iOS app: voice pipeline, App Intents action layer, CarPlay scene. See [../docs/architecture.md](../docs/architecture.md) for how the pieces fit together.
+The HandsFree iOS app: voice pipeline, App Intents action layer. Runs as a standalone app on the phone (no CarPlay — see [../docs/decisions.md](../docs/decisions.md)). See [../docs/architecture.md](../docs/architecture.md) for how the pieces fit together.
 
 Building this normally requires a Mac with Xcode — this project doesn't have one, so building happens on GitHub Actions' macOS runners instead, and installing on the phone happens via SideStore rather than a direct Xcode-to-device connection. Full explanation: [../docs/dev-workflow.md](../docs/dev-workflow.md). Nothing here has been built or run yet — that's the first task, via CI, not locally.
 
@@ -31,6 +31,5 @@ Sources/HandsFree/
 ├── UI/             SwiftUI views (phone screen)
 ├── Voice/          Wake word, speech-to-text, text-to-speech — no knowledge of Claude
 ├── Assistant/       Conversation state + the backend client
-├── Intents/        Donated App Intents (Siri hooks) + tool-call handlers (the action layer)
-└── CarPlay/        CarPlay scene delegate
+└── Intents/        Donated App Intents (Siri hooks) + tool-call handlers (the action layer)
 ```

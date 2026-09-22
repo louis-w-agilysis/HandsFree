@@ -1,8 +1,8 @@
 # Builds an unsigned device (iphoneos) .ipa and uploads it as a workflow artifact.
 # Download it from this run's Summary page and install it via SideStore
 # (docs.sidestore.io) — SideStore re-signs it with your own free Apple ID, so it
-# does NOT need to be signed here. This is the Phase 1-5 release path; see
-# docs/dev-workflow.md for why it's used instead of TestFlight until Phase 6 (CarPlay).
+# does NOT need to be signed here. This is the standing release path — see
+# docs/dev-workflow.md for why TestFlight (ios-testflight.yml) isn't currently needed.
 name: iOS sideload build
 
 on:

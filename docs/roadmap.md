@@ -8,8 +8,7 @@ Phased so each step is independently useful and testable — not a fixed schedul
 - [ ] **Phase 3 — Media playback.** Start with Apple Music (`MusicKit`) since it needs no third-party SDK; add Spotify's SDK as a second integration once the pattern is proven.
 - [ ] **Phase 4 — Messages & notifications.** Needs its own research spike first (see the open risk in [architecture.md](architecture.md)) — Apple's restrictions here are the least clear of the four v1 areas.
 - [ ] **Phase 5 — Wake word.** Swap push-to-talk for on-device wake-word activation (Porcupine) as the default; keep push-to-talk as a fallback.
-- [ ] **Phase 6 — CarPlay.** The one point where the $99/year Apple Developer Program fee becomes necessary (see [decisions.md](decisions.md)) — enroll, apply for the voice-conversational-app CarPlay entitlement, build out `CarPlaySceneDelegate` for real in-car use, switch distribution from SideStore to TestFlight (`ios-testflight.yml`).
-- [ ] **Phase 7 — Polish / stretch.** Siri phrase tuning, home screen widget, evaluate whether this is ever worth taking to the App Store (revisit [decisions.md](decisions.md) if so).
+- [ ] **Phase 6 — Polish / stretch.** Siri phrase tuning, home screen widget, evaluate whether this is ever worth taking to the App Store (revisit [decisions.md](decisions.md) if so — that's also the only currently-planned path back to needing the paid Apple Developer Program).
 
 ## Immediate next steps
 

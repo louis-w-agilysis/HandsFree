@@ -59,19 +59,18 @@ This is the least proven part of the design — flagged as an open risk in [deci
 - **Messages & notifications**: most constrained by Apple's platform restrictions (no general "send an SMS programmatically" API for third-party apps outside `MessageUI`'s user-facing compose sheet, which isn't fully hands-free). Needs its own research spike before committing to an approach — possibly `MFMessageComposeViewController` pre-filled + auto-send is *not* allowed, so this may end up needing a Shortcuts-based workaround or an accepted UX compromise (e.g. read notifications aloud via `Notification Center`/`UNUserNotificationCenter` access, reply by handing off to Siri's own message-sending, rather than the app doing it directly).
 - **Our own intents** (`AskHandsFreeIntent`, etc.): donated via `AppIntent` + `AppShortcutsProvider` so Siri/Shortcuts/Spotlight can trigger *this* app — this direction is well-supported and low-risk.
 
-## CarPlay
+## In-car use, without CarPlay
 
-Apple opened a CarPlay entitlement for "voice-based conversational apps" in Feb 2026 (see [research.md](research.md)). `ios/Sources/HandsFree/CarPlay/CarPlaySceneDelegate.swift` is scaffolded against `CPTemplateApplicationSceneDelegate`, but real device testing needs Apple's approval of that entitlement request — not needed for Phase 0–1 (iPhone-only testing works fine first).
+Not used — Louis's car doesn't have CarPlay (see [decisions.md](decisions.md)). HandsFree runs as a standalone iPhone app: mounted in the car, screen unused while driving, audio via `AVAudioSession` (category `.playAndRecord`, so wake-word listening and TTS playback work simultaneously) routing automatically to whatever Bluetooth audio the car already supports, or the phone's speaker otherwise. Ordinary Bluetooth audio output needs no special entitlement, unlike CarPlay — this is standard `AVFoundation` behavior any app gets for free once a Bluetooth audio device is paired.
 
 ## Siri
 
-The app donates its own App Intents so `"Hey Siri, ask HandsFree to…"` and a Shortcuts automation (e.g. auto-launch on CarPlay/Bluetooth connect) both work. This is separate from — and much simpler than — the App Intents-as-tool-layer question above; donating intents *from* this app is standard, documented Apple API.
+The app donates its own App Intents so `"Hey Siri, ask HandsFree to…"` and a Shortcuts automation (e.g. auto-launch on Bluetooth car-audio connect) both work. This is separate from — and much simpler than — the App Intents-as-tool-layer question above; donating intents *from* this app is standard, documented Apple API.
 
 ## Module boundaries (why the iOS source is laid out this way)
 
 - `Voice/` — protocols + implementations for wake word, STT, TTS. Nothing here should know about Claude or tool schemas.
 - `Assistant/` — the conversation loop and Claude client. Knows about `Voice/` (to trigger listening/speaking) and about `Intents/` (to dispatch tool calls), but `Voice/` and `Intents/` don't know about each other.
 - `Intents/` — the action layer: the app's own donated intents, plus the tool-call handlers that wrap per-service SDKs.
-- `CarPlay/` — presentation only; talks to `Assistant/` the same way the phone UI does.
 
 Keeping these boundaries means a voice-pipeline swap (e.g. WhisperKit → SpeechAnalyzer) or a new tool integration touches one module, not the whole app.
