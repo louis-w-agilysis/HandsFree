@@ -1,0 +1,33 @@
+# Risk assessment (pre-first-install)
+
+Done 2026-09-22, before HandsFree was ever installed on Louis's actual iPhone via SideStore, at his explicit request for a comprehensive pass before testing on his real daily-driver device. Covers: a full re-read of every source file for correctness/safety bugs, the backend's security posture, and the risk profile of SideStore itself (the install mechanism). Update this doc when new risks are found or fixed, rather than treating it as a one-time checklist.
+
+## Fixed
+
+**Backend had zero authentication.** The Worker's URL is public (this repo is public) and proxies to a paid Claude API with no rate limiting — anyone who found the URL could run up real charges with no way to stop them, directly undermining the token-frugality goal. Fixed: every request now requires `Authorization: Bearer <CLIENT_SHARED_SECRET>`, checked before the Worker ever calls Anthropic (so a rejected request costs nothing). The secret lives in three places that must stay in sync — the Cloudflare Worker secret, the `HANDSFREE_CLIENT_SECRET` GitHub Actions secret, and `ios/Sources/HandsFree/Assistant/Secrets.swift` (git-ignored, never in the public repo) — see `backend/README.md`. Verified: unauthenticated request → 401 (no Anthropic call made); authenticated request → 200.
+
+**Speech recognition errors were silently swallowed.** `OnDeviceSpeechTranscriber`'s recognition-task callback only handled the success case; any failure (permission denied, no speech detected, a mid-session drop) meant `onFinalTranscript` was never called — which left `ConversationStore.isListening` stuck `true` forever, with the microphone tap and audio engine still running in the background (the app declares the `audio` background mode, so this wasn't even limited to foreground use). This was very likely to be hit on the very first real test. Fixed: added an `onError` callback, wired to reset `isListening` and show feedback instead of hanging silently.
+
+**Tapping push-to-talk again while a response was still streaming could corrupt state.** `send(_:)` had no guard against being called again before the previous call finished — two concurrent `converse()` calls would have interleaved their streamed text into the same `inProgressAssistantText`, producing garbled spoken output. This is an easy thing to accidentally trigger (talking over the app's own response is a natural voice-UI action). Fixed: added an `isProcessing` flag that both the button and `send(_:)` respect; the UI now also shows a distinct "Thinking…" state and disables the button while a request is in flight, so there's never a silent dead-air state where nothing visibly indicates the app is working — worth being deliberate about specifically because this is meant to be used while driving.
+
+**Conversation history was unbounded.** Every message resent the *entire* conversation history as context, with no cap — a long session's per-message cost grows without bound, and nothing in the UI ever resets it. Fixed: capped to the last 20 turns per request (`ConversationStore.maxHistoryTurns`). This bounds the worst case; it isn't a sophisticated summarization strategy, which wasn't judged worth the complexity yet.
+
+**No request timeout.** The default URLSession behavior can hang up to 60 seconds with zero feedback before failing — a real problem specifically for a driving app, where cell signal drops are common and a long silent hang while someone's trying to talk to the app is its own small safety issue. Fixed: explicit 15-second timeout on the backend request.
+
+## Known, accepted for now (not fixed — low severity, or already tracked elsewhere)
+
+- **Tool-call turns can silently drop from conversation history.** If Claude responds with *only* a tool call and no text (as it did in testing for "remind me to call the dentist tomorrow at 3pm"), `finishAssistantTurn()`'s guard against empty text means nothing gets appended to `turns` — Claude's own memory of having made that call is lost for later context. This is the same gap as the already-tracked "send tool results back to Claude" TODO (`docs/architecture.md`); fixing it properly belongs with that Phase 2+ work, not as an isolated patch.
+- **Reminders/directions currently do nothing on the phone.** `AddReminderHandler`/`GetDirectionsHandler` are still Phase 2 stubs — they extract the tool's input and discard it. This is intentional (matches the roadmap), but worth being explicit about before testing: asking HandsFree to "remind me to X" or "navigate to X" right now will get a spoken response as if it helped, with **no actual reminder created or Maps opened**. Not a bug, but a real trap for judging whether something "worked" during testing.
+- **Locale hardcoded to en-US** in `SpeechTranscriber`. A limitation, not a safety issue.
+- **`assertionFailure` on an unrecognized tool name** in `ToolDispatcher` — this compiles to a no-op in Release builds (which is what `ios-sideload-build.yml` produces), so it won't crash the installed app; only relevant if someone builds a local Debug configuration.
+
+## SideStore / install-mechanism risk (recap, discussed in full during setup)
+
+- No jailbreak, no OS modification, no exploited vulnerability — uses the same official free developer-signing mechanism as Xcode, via different client software. The installed app runs in the normal iOS sandbox like any App Store app.
+- The one real, if minor, account-level risk: some AltStore/SideStore setups use shared "anisette servers" for part of the signing process, which Apple occasionally rate-limits, causing a *temporary* Apple ID lock. Follow SideStore's current official docs for their recommended approach rather than an old guide.
+- Fully reversible: uninstalling HandsFree is exactly like deleting any other app; removing SideStore's VPN profile is done via Settings → VPN & Device Management.
+- The actual residual risk isn't the sideloading mechanism — it's that this is genuinely new code that has never run on real hardware before. It's sandboxed, so it can't damage anything, but it could still crash, misbehave, or drain battery if buggy. **Recommendation, unchanged from before this review: test stationary first (parked or at home), not while actually driving, until it's proven reliable.**
+
+## What this review did not cover
+
+This was a manual read-through by Claude, not automated testing, and not a test run on real hardware (which is the next step). It covers the code as of commit history through 2026-09-22. Re-run a review like this before any future change that touches the voice pipeline, the backend's auth/cost model, or before ever relying on this app in a genuinely unattended way (e.g. wake-word mode replacing push-to-talk in Phase 5).

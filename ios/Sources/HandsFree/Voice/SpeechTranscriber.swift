@@ -9,6 +9,10 @@ protocol SpeechTranscribing: AnyObject {
     /// transcript once they stop.
     var onPartialTranscript: ((String) -> Void)? { get set }
     var onFinalTranscript: ((String) -> Void)? { get set }
+    /// Called instead of onFinalTranscript if recognition fails (permission denied,
+    /// no speech detected, recognizer unavailable mid-session, etc.) — callers must
+    /// handle this to reset any "listening" UI state, or it gets stuck indefinitely.
+    var onError: ((Error) -> Void)? { get set }
 
     func startTranscribing() throws
     func stopTranscribing()
@@ -22,6 +26,7 @@ protocol SpeechTranscribing: AnyObject {
 final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
     var onPartialTranscript: ((String) -> Void)?
     var onFinalTranscript: ((String) -> Void)?
+    var onError: ((Error) -> Void)?
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
@@ -55,7 +60,17 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
         try audioEngine.start()
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self, let result else { return }
+            guard let self else { return }
+            // Without this branch, any recognition failure (permission denied, no
+            // speech detected, a mid-session drop) left onFinalTranscript never
+            // called — which left ConversationStore's `isListening` stuck true
+            // forever, with the mic tap and audio engine still running.
+            if let error {
+                self.stopTranscribing()
+                self.onError?(error)
+                return
+            }
+            guard let result else { return }
             if result.isFinal {
                 self.onFinalTranscript?(result.bestTranscription.formattedString)
             } else {

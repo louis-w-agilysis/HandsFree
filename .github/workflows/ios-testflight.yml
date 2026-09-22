@@ -32,6 +32,16 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Write Secrets.swift
+        env:
+          CLIENT_SHARED_SECRET: ${{ secrets.HANDSFREE_CLIENT_SECRET }}
+        run: |
+          cat > ios/Sources/HandsFree/Assistant/Secrets.swift <<EOF
+          enum Secrets {
+              static let clientSharedSecret = "$CLIENT_SHARED_SECRET"
+          }
+          EOF
+
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate

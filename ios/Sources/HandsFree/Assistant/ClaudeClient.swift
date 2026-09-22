@@ -23,7 +23,13 @@ final class ClaudeClient {
     ) async throws {
         var request = URLRequest(url: backendURL.appendingPathComponent("converse"))
         request.httpMethod = "POST"
+        // Short, explicit timeout: default URLSession behavior can hang up to 60s with
+        // zero feedback, which is a real problem specifically for a driving app where
+        // cell signal drops are common — better to fail fast and say so than sit in
+        // silence while someone's trying to talk to it on the road.
+        request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(Secrets.clientSharedSecret)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "messages": messages.map {
                 ["role": $0.role == .user ? "user" : "assistant", "content": $0.text]

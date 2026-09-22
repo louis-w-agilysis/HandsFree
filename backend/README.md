@@ -8,7 +8,7 @@ A thin Cloudflare Worker that holds the Anthropic API key and proxies the iOS ap
 
 ```
 npm install
-cp .dev.vars.example .dev.vars   # then fill in your real ANTHROPIC_API_KEY
+cp .dev.vars.example .dev.vars   # then fill in your real ANTHROPIC_API_KEY and CLIENT_SHARED_SECRET
 npm run dev
 ```
 
@@ -28,6 +28,8 @@ Request body:
 }
 ```
 
+Requires `Authorization: Bearer <CLIENT_SHARED_SECRET>` — this endpoint proxies to a paid API and its URL is public (this repo is public), so it's not left open. See [../docs/risk-assessment.md](../docs/risk-assessment.md). The iOS app sends this automatically via `ios/Sources/HandsFree/Assistant/Secrets.swift` (git-ignored — see `Secrets.swift.example`).
+
 Streams back Claude's response as server-sent events, including any `tool_use` blocks — the Worker does not execute tools itself (it has no access to the phone); the iOS app is responsible for executing the tool call and sending the result back in the next request. See `src/tools/schema.ts` for the current tool definitions, and `src/claude.ts` for the Anthropic API call.
 
 ## Redeploying
@@ -38,4 +40,4 @@ Already deployed and authenticated on this machine — after changing `src/`, ju
 npm run deploy
 ```
 
-(`npx wrangler login` and `npx wrangler secret put ANTHROPIC_API_KEY` only needed again if credentials/the account change.)
+(`npx wrangler login` and `npx wrangler secret put ANTHROPIC_API_KEY` / `CLIENT_SHARED_SECRET` only needed again if credentials/the account change, or you rotate the shared secret — if you do, update it in three places: this Worker's secret, the `HANDSFREE_CLIENT_SECRET` GitHub Actions secret, and `ios/Sources/HandsFree/Assistant/Secrets.swift`.)

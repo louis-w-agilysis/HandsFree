@@ -19,6 +19,19 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Write placeholder Secrets.swift
+        # This workflow only compile-checks against the Simulator and never talks to
+        # the real backend, so a placeholder value is fine here — see
+        # ios-sideload-build.yml for the real secret. Secrets.swift is git-ignored
+        # (see Secrets.swift.example), so it must exist before xcodegen runs or the
+        # build fails on a missing source file.
+        run: |
+          cat > ios/Sources/HandsFree/Assistant/Secrets.swift <<'EOF'
+          enum Secrets {
+              static let clientSharedSecret = "ci-placeholder"
+          }
+          EOF
+
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate

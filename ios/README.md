@@ -10,10 +10,14 @@ The Xcode project itself (`HandsFree.xcodeproj`) is generated from [`project.yml
 
 ```
 brew install xcodegen
+cp Sources/HandsFree/Assistant/Secrets.swift.example Sources/HandsFree/Assistant/Secrets.swift
+# then edit Secrets.swift, filling in the real value from backend/README.md
 cd ios
 xcodegen generate
 open HandsFree.xcodeproj
 ```
+
+`Secrets.swift` is git-ignored — it holds the shared secret the app sends to the backend (see [../docs/risk-assessment.md](../docs/risk-assessment.md)) and must exist before `xcodegen generate` runs, or the build fails on a missing source file. CI writes it automatically from a GitHub Actions secret; this manual step is only needed for local/interactive builds.
 
 ## Adding dependencies
 

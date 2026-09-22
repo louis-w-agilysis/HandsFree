@@ -21,16 +21,24 @@ struct ContentView: View {
             // Phase 1: push-to-talk. Replaced by wake-word activation in Phase 5
             // (see docs/roadmap.md) — this button stays as the manual fallback.
             Button(action: conversation.togglePushToTalk) {
-                Label(
-                    conversation.isListening ? "Listening…" : "Hold to talk",
-                    systemImage: conversation.isListening ? "waveform" : "mic.fill"
-                )
-                .font(.title2)
-                .padding()
+                Label(buttonLabel, systemImage: buttonIcon)
+                    .font(.title2)
+                    .padding()
             }
             .buttonStyle(.borderedProminent)
+            .disabled(conversation.isProcessing)
         }
         .padding()
+    }
+
+    private var buttonLabel: String {
+        if conversation.isProcessing { return "Thinking…" }
+        return conversation.isListening ? "Listening…" : "Hold to talk"
+    }
+
+    private var buttonIcon: String {
+        if conversation.isProcessing { return "ellipsis" }
+        return conversation.isListening ? "waveform" : "mic.fill"
     }
 }
 

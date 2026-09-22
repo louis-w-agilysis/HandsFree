@@ -7,6 +7,17 @@ import Foundation
 final class ConversationStore: ObservableObject {
     @Published private(set) var turns: [ConversationTurn] = []
     @Published private(set) var isListening = false
+    /// True from the moment a request is sent until Claude's response finishes (or
+    /// errors). Guards against starting a second turn while one is already in
+    /// flight — without this, two concurrent `converse()` calls would interleave
+    /// their streamed text into the same `inProgressAssistantText`, producing
+    /// garbled spoken output.
+    @Published private(set) var isProcessing = false
+
+    /// How many recent turns to send as context on each request. Every message sends
+    /// its full history to Claude, so without a cap, a long session's token cost (and
+    /// therefore spend) grows unbounded — see docs/risk-assessment.md.
+    private let maxHistoryTurns = 20
 
     private let claudeClient = ClaudeClient()
     private let transcriber: SpeechTranscribing = OnDeviceSpeechTranscriber()
@@ -23,12 +34,22 @@ final class ConversationStore: ObservableObject {
                 self?.send(text)
             }
         }
+        transcriber.onError = { [weak self] error in
+            Task { @MainActor in
+                self?.isListening = false
+                self?.turns.append(
+                    ConversationTurn(role: .assistant, text: "Didn't catch that — try again? (\(error.localizedDescription))")
+                )
+            }
+        }
     }
 
     /// Phase 1 entry point. Wake-word activation (Phase 5, docs/roadmap.md) will call
     /// the same `send(_:)` once it has a final transcript, rather than duplicating
     /// this flow.
     func togglePushToTalk() {
+        guard !isProcessing else { return }
+
         if isListening {
             transcriber.stopTranscribing()
             isListening = false
@@ -43,13 +64,19 @@ final class ConversationStore: ObservableObject {
     }
 
     func send(_ text: String) {
+        guard !isProcessing else { return }
+
         turns.append(ConversationTurn(role: .user, text: text))
         inProgressAssistantText = ""
+        isProcessing = true
+
+        let recentTurns = Array(turns.suffix(maxHistoryTurns))
 
         Task { @MainActor in
+            defer { isProcessing = false }
             do {
                 try await claudeClient.converse(
-                    messages: turns,
+                    messages: recentTurns,
                     onTextDelta: { [weak self] delta in
                         self?.inProgressAssistantText += delta
                     },
@@ -62,6 +89,10 @@ final class ConversationStore: ObservableObject {
                 )
                 finishAssistantTurn()
             } catch {
+                // Speak/show whatever text had already streamed before the error,
+                // rather than silently discarding a partial answer the user was
+                // already hearing.
+                finishAssistantTurn()
                 turns.append(ConversationTurn(role: .assistant, text: "Something went wrong: \(error)"))
             }
         }

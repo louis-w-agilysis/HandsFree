@@ -1,1 +1,2 @@
 ANTHROPIC_API_KEY=sk-ant-your-key-here
+CLIENT_SHARED_SECRET=any-random-string-matching-the-iOS-app's-Secrets.swift

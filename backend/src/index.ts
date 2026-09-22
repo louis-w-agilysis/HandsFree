@@ -2,6 +2,7 @@ import { streamConverse, type ConverseMessage } from "./claude";
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
+  CLIENT_SHARED_SECRET: string;
 }
 
 interface ConverseRequestBody {
@@ -21,8 +22,15 @@ export default {
 };
 
 async function handleConverse(request: Request, env: Env): Promise<Response> {
-  if (!env.ANTHROPIC_API_KEY) {
-    return new Response("Server missing ANTHROPIC_API_KEY", { status: 500 });
+  if (!env.ANTHROPIC_API_KEY || !env.CLIENT_SHARED_SECRET) {
+    return new Response("Server misconfigured", { status: 500 });
+  }
+
+  // This URL is public (it's in a public GitHub repo) and proxies to a paid API with
+  // no rate limiting -- without this check, anyone who finds it could run up real
+  // charges. See docs/risk-assessment.md.
+  if (request.headers.get("Authorization") !== `Bearer ${env.CLIENT_SHARED_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   let body: ConverseRequestBody;

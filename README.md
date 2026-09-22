@@ -24,7 +24,7 @@ Full architecture and the open technical questions it depends on: [docs/architec
 
 ```
 HandsFree/
-├── docs/           Research, architecture, roadmap, decision log — read these first
+├── docs/           Research, architecture, roadmap, decision log, risk assessment — read these first
 ├── ios/            The Swift/SwiftUI app: voice pipeline, App Intents action layer
 ├── backend/        Cloudflare Worker that holds the Claude API key and proxies requests
 └── .github/        CI workflows that build the app on a macOS runner — see below
@@ -39,4 +39,4 @@ Louis doesn't own a Mac; only device access is an iPhone 15 Pro. The whole dev l
 
 ## Status
 
-Early scaffolding stage — see [docs/roadmap.md](docs/roadmap.md) for the phased plan. Nothing has been built end-to-end yet.
+Backend is deployed and verified end-to-end (Phase 0). Phase 1's conversational loop is implemented, CI-green, and passed a pre-install risk review ([docs/risk-assessment.md](docs/risk-assessment.md)) — about to get its first real on-device test via SideStore. See [docs/roadmap.md](docs/roadmap.md) for the full phased plan.

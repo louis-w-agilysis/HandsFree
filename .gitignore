@@ -23,6 +23,8 @@ backend/.wrangler/
 .env.*
 backend/.dev.vars
 !backend/.dev.vars.example
+ios/Sources/HandsFree/Assistant/Secrets.swift
+!ios/Sources/HandsFree/Assistant/Secrets.swift.example
 
 # Editor
 .vscode/
