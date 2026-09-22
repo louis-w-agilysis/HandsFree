@@ -23,5 +23,5 @@ targets:
         # Bump MARKETING_VERSION for each meaningful change so Louis can tell builds
         # apart on-device (shown in ContentView) and in the CI artifact filename
         # (ios-sideload-build.yml reads this same value) -- see docs/decisions.md.
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"

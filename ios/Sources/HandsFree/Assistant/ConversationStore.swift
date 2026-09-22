@@ -13,11 +13,20 @@ final class ConversationStore: ObservableObject {
     /// their streamed text into the same `inProgressAssistantText`, producing
     /// garbled spoken output.
     @Published private(set) var isProcessing = false
+    @Published private(set) var isSpeaking = false
+    /// Live partial transcript while listening — the actual fix for "I have no idea
+    /// if it's registering what I'm saying": this was always being produced by
+    /// SFSpeechRecognizer, just never displayed anywhere.
+    @Published private(set) var liveTranscript = ""
+    /// Timestamped event log covering every step of a turn, so a test can be
+    /// diagnosed by reading this rather than guessing over chat.
+    @Published private(set) var debugLog: [String] = []
 
     /// How many recent turns to send as context on each request. Every message sends
     /// its full history to Claude, so without a cap, a long session's token cost (and
     /// therefore spend) grows unbounded — see docs/risk-assessment.md.
     private let maxHistoryTurns = 20
+    private let maxDebugLogLines = 300
 
     private let claudeClient = ClaudeClient()
     private let transcriber: SpeechTranscribing = OnDeviceSpeechTranscriber()
@@ -27,40 +36,72 @@ final class ConversationStore: ObservableObject {
     private var inProgressAssistantText = ""
 
     init() {
+        transcriber.onPartialTranscript = { [weak self] text in
+            Task { @MainActor in
+                self?.liveTranscript = text
+            }
+        }
         transcriber.onFinalTranscript = { [weak self] text in
             Task { @MainActor in
-                self?.isListening = false
-                guard !text.isEmpty else { return }
-                self?.send(text)
+                guard let self else { return }
+                isListening = false
+                liveTranscript = ""
+                guard !text.isEmpty else {
+                    log("Heard nothing")
+                    return
+                }
+                log("Heard: \"\(text)\"")
+                send(text)
             }
         }
         transcriber.onError = { [weak self] error in
             Task { @MainActor in
-                self?.isListening = false
-                self?.turns.append(
+                guard let self else { return }
+                isListening = false
+                liveTranscript = ""
+                log("Speech recognition error: \(error.localizedDescription)")
+                turns.append(
                     ConversationTurn(role: .assistant, text: "Didn't catch that — try again? (\(error.localizedDescription))")
                 )
             }
         }
-    }
-
-    /// Phase 1 entry point. Wake-word activation (Phase 5, docs/roadmap.md) will call
-    /// the same `send(_:)` once it has a final transcript, rather than duplicating
-    /// this flow.
-    func togglePushToTalk() {
-        guard !isProcessing else { return }
-
-        if isListening {
-            transcriber.stopTranscribing()
-            isListening = false
-        } else {
-            do {
-                try transcriber.startTranscribing()
-                isListening = true
-            } catch {
-                turns.append(ConversationTurn(role: .assistant, text: "Couldn't start listening: \(error)"))
+        synthesizer.onSpeechStart = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                isSpeaking = true
+                log("Speaking response aloud")
             }
         }
+        synthesizer.onSpeechFinish = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                isSpeaking = false
+                log("Finished speaking")
+            }
+        }
+    }
+
+    /// Called on press-down. Real press-and-hold, not a tap-to-toggle — the button
+    /// used to be labeled "Hold to talk" but actually toggled on tap, which was
+    /// confusing and didn't match what it said.
+    func beginPressToTalk() {
+        guard !isProcessing, !isListening else { return }
+        do {
+            try transcriber.startTranscribing()
+            isListening = true
+            liveTranscript = ""
+            log("Listening started")
+        } catch {
+            log("Couldn't start listening: \(error.localizedDescription)")
+            turns.append(ConversationTurn(role: .assistant, text: "Couldn't start listening: \(error.localizedDescription)"))
+        }
+    }
+
+    /// Called on release.
+    func endPressToTalk() {
+        guard isListening else { return }
+        transcriber.stopTranscribing()
+        log("Listening stopped, finalizing…")
     }
 
     func send(_ text: String) {
@@ -69,6 +110,7 @@ final class ConversationStore: ObservableObject {
         turns.append(ConversationTurn(role: .user, text: text))
         inProgressAssistantText = ""
         isProcessing = true
+        log("Sending to Claude…")
 
         let recentTurns = Array(turns.suffix(maxHistoryTurns))
 
@@ -81,28 +123,42 @@ final class ConversationStore: ObservableObject {
                         self?.inProgressAssistantText += delta
                     },
                     onToolCall: { [weak self] toolCall in
+                        self?.log("Tool call: \(toolCall.name)")
                         // TODO (Phase 2+): send the tool result back to Claude as the
                         // next turn once the handlers below actually do something to
                         // report — see the open risk in docs/architecture.md.
                         self?.toolDispatcher.dispatch(toolCall)
                     }
                 )
+                log("Response received (\(inProgressAssistantText.count) chars)")
                 finishAssistantTurn()
             } catch {
                 // Speak/show whatever text had already streamed before the error,
                 // rather than silently discarding a partial answer the user was
                 // already hearing.
+                log("Request failed: \(error.localizedDescription)")
                 finishAssistantTurn()
-                turns.append(ConversationTurn(role: .assistant, text: "Something went wrong: \(error)"))
+                turns.append(ConversationTurn(role: .assistant, text: "Something went wrong: \(error.localizedDescription)"))
             }
         }
     }
 
     private func finishAssistantTurn() {
-        guard !inProgressAssistantText.isEmpty else { return }
+        guard !inProgressAssistantText.isEmpty else {
+            log("(empty response — nothing to speak)")
+            return
+        }
         let text = inProgressAssistantText
         turns.append(ConversationTurn(role: .assistant, text: text))
         synthesizer.speak(text)
         inProgressAssistantText = ""
+    }
+
+    private func log(_ message: String) {
+        let timestamp = Date().formatted(date: .omitted, time: .standard)
+        debugLog.append("[\(timestamp)] \(message)")
+        if debugLog.count > maxDebugLogLines {
+            debugLog.removeFirst(debugLog.count - maxDebugLogLines)
+        }
     }
 }

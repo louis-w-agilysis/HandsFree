@@ -10,8 +10,9 @@ protocol SpeechTranscribing: AnyObject {
     var onPartialTranscript: ((String) -> Void)? { get set }
     var onFinalTranscript: ((String) -> Void)? { get set }
     /// Called instead of onFinalTranscript if recognition genuinely fails (permission
-    /// denied, no speech detected, recognizer unavailable mid-session) — callers must
-    /// handle this to reset any "listening" UI state, or it gets stuck indefinitely.
+    /// denied, no speech detected, recognizer unavailable mid-session, an interruption
+    /// like an incoming call) — callers must handle this to reset any "listening" UI
+    /// state, or it gets stuck indefinitely.
     var onError: ((Error) -> Void)? { get set }
 
     func startTranscribing() throws
@@ -32,6 +33,33 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var interruptionObserver: NSObjectProtocol?
+
+    override init() {
+        super.init()
+        // Without this, an incoming call (or anything else that interrupts audio)
+        // mid-listen would leave isListening stuck true forever, the same class of
+        // bug as the cancel()/endAudio() race — see docs/risk-assessment.md.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let info = notification.userInfo,
+                  let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: typeValue) == .began
+            else { return }
+            self.tearDown()
+            self.onError?(SpeechTranscriberError.interrupted)
+        }
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
 
     func startTranscribing() throws {
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
@@ -79,8 +107,8 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
         }
     }
 
-    /// Called when the user taps to stop talking. Signals end-of-speech via
-    /// `endAudio()` so the recognizer finalizes whatever was actually said.
+    /// Called when the user releases the press-and-hold button. Signals end-of-speech
+    /// via `endAudio()` so the recognizer finalizes whatever was actually said.
     ///
     /// This used to also call `task.cancel()` here, which was the bug: cancel() and
     /// the endAudio()-triggered finalization raced, and cancel always won, so the
@@ -109,6 +137,7 @@ final class OnDeviceSpeechTranscriber: NSObject, SpeechTranscribing {
 enum SpeechTranscriberError: Error, LocalizedError {
     case recognizerUnavailable
     case notAuthorized
+    case interrupted
 
     var errorDescription: String? {
         switch self {
@@ -116,6 +145,8 @@ enum SpeechTranscriberError: Error, LocalizedError {
             return "Speech recognizer isn't available right now."
         case .notAuthorized:
             return "Speech recognition permission not granted yet — check Settings, or try again after allowing it."
+        case .interrupted:
+            return "Interrupted (e.g. a call) — try again."
         }
     }
 }
