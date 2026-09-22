@@ -53,3 +53,9 @@ How to apply: `backend/src/claude.ts` sets `thinking: { type: "disabled" }` and 
 **Before HandsFree was ever installed on Louis's actual phone via SideStore, did a full manual code review and fixed five real issues** — most importantly, the backend had zero authentication despite being a public URL proxying to a paid API (direct conflict with the token-frugality decision above). Full findings, fixes, and the accepted/deferred lower-severity items: [risk-assessment.md](risk-assessment.md).
 Why: Louis explicitly asked for a comprehensive risk assessment before testing on his real daily-driver device, not just verbal reassurance.
 How to apply: treat [risk-assessment.md](risk-assessment.md) as a living document, not a one-time checklist — re-run a review like it before any future change to the voice pipeline, the backend's auth/cost model, or before Phase 5 (wake word) removes the push-to-talk button as the point where a human decides to start a request.
+
+## 2026-09-22 — Version numbers, so Louis can tell installed builds apart
+
+**The installed app shows `vX.Y (build)` on-screen (`ContentView`), and each CI-built `.ipa`/artifact is named with the same version, instead of always being called the same static filename.**
+Why: after the first on-device test needed a same-named-file replace-and-hope-it's-the-new-one reinstall (via OneDrive, since GitHub's mobile artifact download was unreliable), Louis asked for a way to confirm on his phone which build he actually has, rather than trusting the filename he happened to sideload.
+How to apply: bump `MARKETING_VERSION` in `ios/project.yml` for each build worth distinguishing (this install is `1.0`) — `CURRENT_PROJECT_VERSION` (the build number) can increment more freely for same-version iterations. `ios-sideload-build.yml` reads both from the built `Info.plist` to name the `.ipa`/artifact — don't hardcode a filename there again.

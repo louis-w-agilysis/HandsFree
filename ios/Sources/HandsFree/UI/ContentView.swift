@@ -8,8 +8,15 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("HandsFree")
-                .font(.largeTitle.bold())
+            VStack(spacing: 2) {
+                Text("HandsFree")
+                    .font(.largeTitle.bold())
+                // So it's obvious on-screen which build is actually installed,
+                // rather than having to trust the filename you sideloaded.
+                Text(versionLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             List(conversation.turns) { turn in
                 Text(turn.text)
@@ -39,6 +46,12 @@ struct ContentView: View {
     private var buttonIcon: String {
         if conversation.isProcessing { return "ellipsis" }
         return conversation.isListening ? "waveform" : "mic.fill"
+    }
+
+    private var versionLabel: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "v\(version) (\(build))"
     }
 }
 
