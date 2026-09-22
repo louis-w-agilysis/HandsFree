@@ -5,7 +5,10 @@ const ANTHROPIC_VERSION = "2023-06-01";
 
 // Raw fetch to the Anthropic API rather than the Node SDK — keeps this dependency-free
 // and avoids Workers-runtime compatibility issues with SDKs built for Node.
-const MODEL = "claude-sonnet-5";
+// Haiku over Sonnet: much cheaper/faster, and plenty for tool-routing and short
+// spoken replies (see docs/decisions.md, 2026-09-22 token-frugality entry). Revisit
+// per-request if a task genuinely needs Sonnet-level reasoning.
+const MODEL = "claude-haiku-4-5-20251001";
 
 export interface ConverseMessage {
   role: "user" | "assistant";
@@ -36,6 +39,11 @@ export function streamConverse(
       messages,
       tools,
       stream: true,
+      // Sonnet 5 runs extended thinking by default (billed as output tokens) unless
+      // explicitly disabled. A voice assistant doing tool-routing and short spoken
+      // replies doesn't need it -- it only adds cost and latency here. Revisit if
+      // response quality actually suffers for some request type.
+      thinking: { type: "disabled" },
     }),
   });
 }
