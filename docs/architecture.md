@@ -37,7 +37,7 @@ The Claude API key must never ship inside the iOS app bundle — anyone could ex
 ## Voice pipeline
 
 - **Wake word**: on-device (Porcupine or similar), see [research.md](research.md). Chosen over always-streaming-to-cloud for latency, battery, and privacy, and to satisfy zero-touch hands-free law requirements in every US state that regulates it.
-- **STT**: on-device streaming (WhisperKit or Apple's SpeechAnalyzer). Swappable — the app should depend on a small protocol (`SpeechTranscribing`), not a specific SDK, so the backend can change without touching the rest of the app.
+- **STT**: on-device via `SFSpeechRecognizer` (`requiresOnDeviceRecognition = true`) for now — chosen over WhisperKit/SpeechAnalyzer because it needs no extra SPM dependency and its APIs exist in the SDK this project's CI currently builds against (Xcode 16.4 doesn't yet know about the iOS 26 SpeechAnalyzer APIs). Swappable — the app depends on a small protocol (`SpeechTranscribing`), not a specific SDK, so this can change later without touching the rest of the app.
 - **TTS**: `AVSpeechSynthesizer` (on-device, fast, offline) as the default. A higher-quality cloud voice (e.g. ElevenLabs) is a plausible later upgrade for non-latency-critical responses — keep this behind the same kind of protocol seam as STT.
 
 ## The Claude conversation loop

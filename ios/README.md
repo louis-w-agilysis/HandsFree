@@ -19,7 +19,7 @@ open HandsFree.xcodeproj
 
 As phases in the roadmap need them, add via Xcode's Swift Package Manager integration (File → Add Package Dependencies):
 
-- **WhisperKit** (`argmaxinc/WhisperKit`) — on-device streaming speech-to-text, or use Apple's built-in `SpeechAnalyzer` (iOS 26+) instead and skip this dependency entirely.
+- **WhisperKit** (`argmaxinc/WhisperKit`) or Apple's built-in `SpeechAnalyzer` — an upgrade from the current `SFSpeechRecognizer`-based transcriber (see `Voice/SpeechTranscriber.swift`) if/when better accuracy or lower latency is worth the added dependency or a CI toolchain bump.
 - **Porcupine** (`Picovoice/porcupine`) — on-device wake-word detection, Phase 5.
 - **Spotify iOS SDK** — Phase 3, if adding Spotify control alongside Apple Music.
 
